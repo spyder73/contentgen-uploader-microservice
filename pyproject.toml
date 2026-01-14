@@ -1,0 +1,7 @@
+[tool.ruff]
+select = [
+    "ALL",
+]
+deselect = [
+    "Q000"
+]

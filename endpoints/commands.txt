@@ -1,0 +1,8 @@
+first give permission to user server recursively via chown
+
+give also permission to the ssl certificates 
+
+sudo chown server:server /etc/letsencrypt/live/{SERVER_URL}
+
+sudo chown -R server:server /etc/letsencrypt/live/{SERVER_URL}
+sudo chmod -R 770 /etc/letsencrypt/live/{SERVER_URL}
