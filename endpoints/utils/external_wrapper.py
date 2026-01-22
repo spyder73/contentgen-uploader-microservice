@@ -26,7 +26,7 @@ def calculate_and_update_next_upload_time(account):
 ####
 #TODO:
 # This should be split into a tracking decorator
-# and another tracker that handles the scheduling and calculation of times
+# and another decorator that handles the scheduling and calculation of times - important
 ####
 def track_upload(func):
     """
@@ -46,9 +46,15 @@ def track_upload(func):
         # Check if request came from Telegram
         source = request.headers.get('X-Source')
         
-        if not video_id:
+        carousel_id = request.form.get('carousel_id')
+        
+        if not video_id and not carousel_id:
             video_id = uuid.uuid4()
             logger.info(f"No video_id provided, generated new id: {video_id}")
+            
+        if carousel_id:
+            logger.info(f"Detected carousel post, treating it as a video with id {carousel_id}")
+            video_id = carousel_id
         
         # if the video comes outside of telegram, we need to add the video to the DB
         if source != 'telegram':
