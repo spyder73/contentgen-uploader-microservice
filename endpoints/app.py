@@ -5,6 +5,7 @@ from routes.upload_post import upload_bp
 from routes.openrouter import openrouter_bp
 from routes.spoof import spoof_bp
 from routes.job_checker import job_checker_bp
+from routes.telegram import telegram_bp
 from internal.video import video_bp
 from internal.account import account_bp
 from internal.group import group_bp
@@ -32,6 +33,7 @@ app.register_blueprint(account_bp)
 app.register_blueprint(group_bp)
 app.register_blueprint(spoof_bp)
 app.register_blueprint(job_checker_bp)
+app.register_blueprint(telegram_bp)
 
 if __name__ == '__main__':
     start_scheduler()
