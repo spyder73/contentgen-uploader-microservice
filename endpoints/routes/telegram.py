@@ -102,9 +102,6 @@ def send_telegram_carousel():
             mb = size / (1024 * 1024)
             return jsonify({'error': f'Image too large ({mb:.1f} MB). Telegram photo limit is 10 MB.'}), 413
 
-    if len(caption) > 1024:
-        caption = caption[:1021] + '...'
-
     try:
         url = f'https://api.telegram.org/bot{BOT_TOKEN}/sendMediaGroup'
 
@@ -112,11 +109,7 @@ def send_telegram_carousel():
         files = {}
         for i, img in enumerate(images):
             attach_key = f'image_{i}'
-            entry = {'type': 'photo', 'media': f'attach://{attach_key}'}
-            if i == 0 and caption:
-                entry['caption'] = caption
-                entry['parse_mode'] = 'HTML'
-            media_list.append(entry)
+            media_list.append({'type': 'photo', 'media': f'attach://{attach_key}'})
             files[attach_key] = (img.filename or f'image_{i}.jpg', img, img.content_type or 'image/jpeg')
 
         resp = requests.post(url, data={
@@ -128,6 +121,18 @@ def send_telegram_carousel():
         if not result.get('ok'):
             logger.error(f"Telegram API error: {result}")
             return jsonify({'error': result.get('description', 'Telegram API error')}), 502
+
+        # Send caption as separate message (4096 char limit vs 1024 on media group)
+        if caption:
+            if len(caption) > 4096:
+                caption = caption[:4093] + '...'
+            msg_resp = requests.post(
+                f'https://api.telegram.org/bot{BOT_TOKEN}/sendMessage',
+                data={'chat_id': user_id, 'text': caption, 'parse_mode': 'HTML'},
+                timeout=30,
+            )
+            if not msg_resp.json().get('ok'):
+                logger.warning(f"Caption message failed: {msg_resp.json()}")
 
         return jsonify({'success': True, 'message': 'Carousel sent to Telegram'}), 200
 
