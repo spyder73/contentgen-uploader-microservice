@@ -4,6 +4,7 @@ import logging
 import requests
 from flask import Blueprint, request, jsonify
 from auth import require_token, ALLOWED_USERS
+from utils.video_meta import metadata_from_form, probe_upload
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +13,14 @@ telegram_bp = Blueprint('telegram', __name__)
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB Telegram Bot API limit
 MAX_PHOTO_SIZE = 10 * 1024 * 1024  # 10 MB Telegram photo limit
+
+
+def _mp4_filename(name):
+    """Telegram keys off the extension as well as the MIME type."""
+    base = os.path.basename(name or '').strip()
+    if base.lower().endswith('.mp4'):
+        return base
+    return 'video.mp4'
 
 
 @telegram_bp.route('/resolve-telegram-username', methods=['GET'])
@@ -56,14 +65,26 @@ def send_telegram_video():
     if len(caption) > 1024:
         caption = caption[:1021] + '...'
 
+    # Telegram will not derive these from the container. Without width/height it
+    # lays the player out as a square, without duration it shows no length, and
+    # without supports_streaming the client must download the whole file before
+    # it will play. The caller normally probes and sends them; fall back to
+    # probing here for callers that don't.
+    payload = {
+        'chat_id': user_id,
+        'caption': caption,
+        'parse_mode': 'HTML',
+        'supports_streaming': 'true',
+    }
+    payload.update(metadata_from_form(request.form) or probe_upload(video))
+
     try:
         url = f'https://api.telegram.org/bot{BOT_TOKEN}/sendVideo'
-        resp = requests.post(url, data={
-            'chat_id': user_id,
-            'caption': caption,
-            'parse_mode': 'HTML',
-        }, files={
-            'video': (video.filename or 'video.mp4', video, video.content_type or 'video/mp4'),
+        resp = requests.post(url, data=payload, files={
+            # Uploads arrive as application/octet-stream (Go's CreateFormFile
+            # hard-codes it), and Telegram files a non-video MIME type as a
+            # document, so the type is pinned rather than forwarded.
+            'video': (_mp4_filename(video.filename), video, 'video/mp4'),
         }, timeout=120)
 
         result = resp.json()
